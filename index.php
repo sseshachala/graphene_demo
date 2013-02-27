@@ -12,6 +12,11 @@ function make_graphite_url($targets, $from="-2hours") {
 }
 
 function plot_memory($path) {
+    $targets = array($path."memory-buffered",
+        $path."memory-cached",
+        $path."memory-free",
+        $path."memory-used");
+    return make_graphite_url($targets);
 }
 
 function plot_load($path) {
@@ -72,7 +77,7 @@ if ($clientuser && $clienthost) {
         if ($p->name == "load") {
             $load_target = plot_load($p->path);
         } else if ($p->name == "memory") {
-            plot_memory($p->path);
+            $memory_target = plot_memory($p->path);
         }
     }
 
@@ -142,6 +147,12 @@ if ($clientuser && $clienthost) {
         source: "<?php echo $load_target; ?>",
       TimeSeries: {
         parent: '#g1-1'
+      }
+    },
+    "Memory": {
+        source: "<?php echo $memory_target; ?>",
+      TimeSeries: {
+        parent: '#g2-1'
       }
     }
   };
