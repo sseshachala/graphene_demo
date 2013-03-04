@@ -2,7 +2,7 @@
 
 $GRAPHITE_ROOT = "http://ec2-184-73-92-62.compute-1.amazonaws.com";
 
-function make_graphite_url($targets, $from="-2hours") {
+function makeGraphiteUrl($targets, $from="-2hours") {
     global $GRAPHITE_ROOT;
     $query = "from=$from&until=now&format=json";
     foreach ($targets as $t) {
@@ -11,20 +11,52 @@ function make_graphite_url($targets, $from="-2hours") {
     return $GRAPHITE_ROOT."/render?".$query;
 }
 
-function plot_memory($path) {
+function plotMemory($path) {
     $targets = array($path."memory-buffered",
         $path."memory-cached",
         $path."memory-free",
         $path."memory-used");
-    return make_graphite_url($targets);
+    $name = "Memory";
+    $url = makeGraphiteUrl($targets);
+    return array("name"=>$name, "target"=>$url);
 }
 
-function plot_load($path) {
+function plotLoad($path) {
     $targets = array($path."load.shortterm", $path."load.midterm", $path."load.longterm");
-    return make_graphite_url($targets);
+    $name = "Load";
+    $url = makeGraphiteUrl($targets);
+    return array("name"=>$name, "target"=>$url);
 }
 
-function get_json_response($url, $postdata) {
+function plotCpu($path) {
+
+    $name = "CPU";
+    $url = "";
+    return array("name"=>$name, "target"=>$url);
+}
+
+function plotDf($path) {
+
+    $name = "DiskFree";
+    $url = "";
+    return array("name"=>$name, "target"=>$url);
+}
+
+function plotDisk($path) {
+
+    $name = "Disk";
+    $url = "";
+    return array("name"=>$name, "target"=>$url);
+}
+
+function plotInterface($path) {
+
+    $name = "Network";
+    $url = "";
+    return array("name"=>$name, "target"=>$url);
+}
+
+function getJsonResponse($url, $postdata) {
     $ch = curl_init($url);
     curl_setopt($ch, CURLOPT_POST, 1);
     curl_setopt($ch, CURLOPT_POSTFIELDS, $postdata);
@@ -36,16 +68,16 @@ function get_json_response($url, $postdata) {
     return json_decode($response);
 }
 
-function do_graphite_find($query) {
+function doGraphiteFind($query) {
     global $GRAPHITE_ROOT;
     $url = $GRAPHITE_ROOT . "/metrics/find/";
     $data = array("query" => $query,
                   "format" => "completer");
-    return get_json_response($url, $data);
+    return getJsonResponse($url, $data);
 }
 
-function get_users() {
-    $users = do_graphite_find("");
+function getUsers() {
+    $users = doGraphiteFind("");
     $ret = array();
     foreach ($users->metrics as $u) {
         array_push($ret, $u->name);
@@ -53,8 +85,8 @@ function get_users() {
     return $ret;
 }
 
-function get_servers($user) {
-    $servers = do_graphite_find("$user.");
+function getServers($user) {
+    $servers = doGraphiteFind("$user.");
     $ret = array();
     foreach ($servers->metrics as $u) {
         array_push($ret, $u->name);
@@ -62,9 +94,13 @@ function get_servers($user) {
     return $ret;
 }
 
-function get_plugins($user, $server) {
-    $plugins = do_graphite_find("$user.$server.");
+function getPlugins($user, $server) {
+    $plugins = doGraphiteFind("$user.$server.");
     return $plugins;
+}
+
+function startswith($str, $startswith) {
+    return strpos($str, $startswith) === 0;
 }
 
 $clientuser = $_GET["user"];
@@ -72,18 +108,27 @@ $clienthost = $_GET["host"];
 
 if ($clientuser && $clienthost) {
     // Show all services for this machine on this client
-    $plugins = get_plugins($clientuser, $clienthost);
+    $plugins = getPlugins($clientuser, $clienthost);
+    $plugin_config = array();
     foreach ($plugins->metrics as $p) {
         if ($p->name == "load") {
-            $load_target = plot_load($p->path);
+            $plugin_config[] = plotLoad($p->path);
         } else if ($p->name == "memory") {
-            $memory_target = plot_memory($p->path);
+            $plugin_config[] = plotMemory($p->path);
+        } else if (startswith($p->name, "cpu-")) {
+            $plugin_config[] = plotCpu($p->path);
+        } else if (startswith($p->name, "df-")) {
+            $plugin_config[] = plotDf($p->path);
+        } else if (startswith($p->name, "disk-")) {
+            $plugin_config[] = plotDisk($p->path);
+        } else if (startswith($p->name, "interface-")) {
+            $plugin_config[] = plotInterface($p->path);
         }
     }
 
 } else if ($clientuser && !$clienthost) {
     // We've selected a user, show all hosts
-    $available_hosts = get_servers($clientuser);
+    $available_hosts = getServers($clientuser);
     echo "<h2>Customer: $clientuser</h2>\n";
     echo "<h2>Available servers</h2>\n";
     foreach ($available_hosts as $host) {
@@ -92,12 +137,18 @@ if ($clientuser && $clienthost) {
 
 } else {
     // No user selected, show all users
-    $available_users = get_users();
+    $available_users = getUsers();
     echo "<h2>Available customers</h2>\n";
     foreach ($available_users as $user) {
         echo "<li><a href=\"?user=$user\">$user</a></li>\n";
     }
 }
+
+$containers = array("#g1-1", "#g1-2", "#g1-3", "#g2-1",
+    "#g2-2", "#g2-3", "#g3-1", "#g3-2", "#g3-3");
+
+$config = json_encode($plugin_config);
+$containers = json_encode($containers);
 
 ?>
 
@@ -135,27 +186,38 @@ if ($clientuser && $clienthost) {
         <div id="g2-3" class="span4">
         </div>
       </div>
+
+      <div class="row-fluid">
+        <div id="g3-1" class="span4">
+        </div>
+        <div id="g3-2" class="span4">
+        </div>
+        <div id="g3-3" class="span4">
+        </div>
+      </div>
     </div>
 
     <script type="text/javascript" src="jquery-1.7.1.min.js"></script>
     <script type="text/javascript" src="index.js"></script>
     <script type="text/javascript">
 (function() {
-  var description;
-  description = {
-    "Load": {
-        source: "<?php echo $load_target; ?>",
-      TimeSeries: {
-        parent: '#g1-1'
-      }
-    },
-    "Memory": {
-        source: "<?php echo $memory_target; ?>",
-      TimeSeries: {
-        parent: '#g2-1'
-      }
-    }
+  var labelFormatter = function(label) {
+    var parts = label.split(/\./);
+    return parts[parts.length-1];
   };
+  var config = <?php echo $config; ?>;
+  var containers = <?php echo $containers; ?>;
+
+  var description = {};
+  for (var i=0; i < config.length; i++) {
+      description[config[i]["name"]] = {"source": config[i]["target"],
+          TimeSeries: {
+              parent: containers[i],
+              title: config[i]["name"],
+              label_formatter: labelFormatter
+          }
+      }
+  }
 
   var g = new Graphene;
   g.build(description);
