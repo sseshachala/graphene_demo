@@ -29,30 +29,45 @@ function plotLoad($path) {
 }
 
 function plotCpu($path) {
-
-    $name = "CPU";
-    $url = "";
+    $targets = array($path."cpu-user", $path."cpu-system", $path."cpu-wait");
+    $matches = array();
+    preg_match("/cpu-(\d+)/", $path, $matches);
+    $cpunum = $matches[1] + 1;
+    $name = "CPU $cpunum";
+    $url = makeGraphiteUrl($targets);
     return array("name"=>$name, "target"=>$url);
 }
 
 function plotDf($path) {
-
-    $name = "DiskFree";
-    $url = "";
+    $targets = array($path."df_complex-used", $path."df_complex-free");
+    $matches = array();
+    preg_match("/df-([^.]+)/", $path, $matches);
+    $diskname = $matches[1];
+    if ($diskname == "root") {
+        $diskname = "/";
+    }
+    $name = "Disk free ($diskname)";
+    $url = makeGraphiteUrl($targets);
     return array("name"=>$name, "target"=>$url);
 }
 
 function plotDisk($path) {
-
-    $name = "Disk";
-    $url = "";
+    $targets = array($path."disk_ops.read", $path."disk_ops.write");
+    $matches = array();
+    preg_match("/disk-([^.]+)/", $path, $matches);
+    $diskname = $matches[1];
+    $name = "Disk ($diskname)";
+    $url = makeGraphiteUrl($targets);
     return array("name"=>$name, "target"=>$url);
 }
 
 function plotInterface($path) {
-
-    $name = "Network";
-    $url = "";
+    $targets = array($path."if_packets.rx", $path."if_packets.tx");
+    $matches = array();
+    preg_match("/interface-([^.]+)/", $path, $matches);
+    $interface = $matches[1];
+    $name = "Interface $interface";
+    $url = makeGraphiteUrl($targets);
     return array("name"=>$name, "target"=>$url);
 }
 
@@ -112,7 +127,7 @@ if ($clientuser && $clienthost) {
     $plugin_config = array();
     foreach ($plugins->metrics as $p) {
         if ($p->name == "load") {
-            $plugin_config[] = plotLoad($p->path);
+            //$plugin_config[] = plotLoad($p->path);
         } else if ($p->name == "memory") {
             $plugin_config[] = plotMemory($p->path);
         } else if (startswith($p->name, "cpu-")) {
