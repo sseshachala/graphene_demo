@@ -213,7 +213,11 @@ $containers = json_encode($containers);
     </div>
 
     <script type="text/javascript" src="jquery-1.7.1.min.js"></script>
-    <script type="text/javascript" src="index.js"></script>
+    <script type="text/javascript" src="underscore.js"></script>
+    <script type="text/javascript" src="backbone.js"></script>
+    <script type="text/javascript" src="d3.js"></script>
+    <script type="text/javascript" src="d3.gauge.js"></script>
+    <script type="text/javascript" src="graphene.js"></script>
     <script type="text/javascript">
 (function() {
   var labelFormatter = function(label) {
