@@ -221,8 +221,12 @@ $containers = json_encode($containers);
     <script type="text/javascript">
 (function() {
   var labelFormatter = function(label) {
-    var parts = label.split(/\./);
-    return parts[parts.length-1];
+    if (label) {
+      var parts = label.split(/\./);
+      return parts[parts.length-1];
+    } else {
+      return label;
+    }
   };
   var config = <?php echo $config; ?>;
   var containers = <?php echo $containers; ?>;
